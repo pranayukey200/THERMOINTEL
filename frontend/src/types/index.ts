@@ -308,3 +308,26 @@ export interface TargetLocation {
   count?: number;
 }
 
+export interface CorrelatedThermalEvent {
+  event_id: string;
+  title: string;
+  status: 'OPEN' | 'CLOSED';
+  tag: 'INVESTIGATE_INDUSTRIAL' | 'LOW_URGENCY_AGRICULTURAL';
+  region_name: string;
+  source_count: number;
+  source_ids: number[];
+  centroid_lat: number;
+  centroid_lon: number;
+  z_score: number;
+  baseline_mean: number;
+  baseline_std: number;
+  start_date: string;
+  end_date: string;
+  first_detected_at: string;
+  last_detected_at: string;
+  consecutive_misses: number;
+  detection_run_id: number;
+  member_sources?: any[];
+}
+
+

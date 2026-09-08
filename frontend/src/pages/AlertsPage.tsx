@@ -19,8 +19,9 @@ import {
   MapPin
 } from 'lucide-react';
 import { api } from '../services/api';
-import { AlertItem } from '../types';
+import { AlertItem, CorrelatedThermalEvent } from '../types';
 import { SourceDetailModal } from '../components/SourceDetailModal';
+import { CorrelatedEventBanner } from '../components/CorrelatedEventBanner';
 import { getClassificationColor, getClassificationColorName } from '../components/CommandMap';
 import { downloadTacticalBriefPdf } from '../utils/generateTacticalPdf';
 
@@ -32,6 +33,38 @@ export const AlertsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [correlatedEvents, setCorrelatedEvents] = useState<CorrelatedThermalEvent[]>([]);
+  const [correlatedLoading, setCorrelatedLoading] = useState<boolean>(false);
+
+  const fetchCorrelatedEvents = () => {
+    setCorrelatedLoading(true);
+    api.getCorrelatedEvents('OPEN')
+      .then((data) => {
+        setCorrelatedEvents(data);
+        setCorrelatedLoading(false);
+      })
+      .catch((err) => {
+        console.error("Correlated events fetch error:", err);
+        setCorrelatedLoading(false);
+      });
+  };
+
+  const handleRefreshCorrelatedDetection = async () => {
+    try {
+      setCorrelatedLoading(true);
+      await api.triggerCorrelatedDetection();
+      const updated = await api.getCorrelatedEvents('OPEN');
+      setCorrelatedEvents(updated);
+    } catch (err) {
+      console.error("Failed to re-run correlated detection:", err);
+    } finally {
+      setCorrelatedLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCorrelatedEvents();
+  }, []);
 
   const handleInspectOnMap = (alert: AlertItem) => {
     navigate(
@@ -120,6 +153,13 @@ export const AlertsPage: React.FC = () => {
             Priority-ranked incident queue computed from composite risk scores, temporal surge dynamics, and proximity to sovereign industrial infrastructure across India.
           </p>
         </div>
+
+        {/* Correlated Thermal Activity Synchronized Surge Banner */}
+        <CorrelatedEventBanner
+          events={correlatedEvents}
+          onRefresh={handleRefreshCorrelatedDetection}
+          isRefreshing={correlatedLoading}
+        />
 
         {/* Filter and Search Bar */}
         <div className="bg-[#F5F2EB] p-4 rounded-none border border-[#D0C9BE] shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">

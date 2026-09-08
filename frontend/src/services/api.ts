@@ -15,7 +15,8 @@ import {
   FilterState,
   SearchSuggestion,
   TacticalIncidentBrief,
-  DisambiguationMatrixResponse
+  DisambiguationMatrixResponse,
+  CorrelatedThermalEvent
 } from '../types';
 
 const API_BASE = '/api';
@@ -190,6 +191,30 @@ export const api = {
   getDisambiguationMatrix: async (): Promise<DisambiguationMatrixResponse> => {
     const res = await fetch(`${API_BASE}/tactical/disambiguation-matrix`);
     if (!res.ok) throw new Error('Failed to fetch disambiguation matrix');
+    return res.json();
+  },
+
+  // Correlated Thermal Activity Detection
+  getCorrelatedEvents: async (status: string = 'OPEN', tag?: string): Promise<CorrelatedThermalEvent[]> => {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (tag) params.set('tag', tag);
+    const res = await fetch(`${API_BASE}/correlated-events?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch correlated events');
+    return res.json();
+  },
+
+  getCorrelatedEventDetail: async (eventId: string): Promise<CorrelatedThermalEvent> => {
+    const res = await fetch(`${API_BASE}/correlated-events/${eventId}`);
+    if (!res.ok) throw new Error(`Failed to fetch correlated event ${eventId}`);
+    return res.json();
+  },
+
+  triggerCorrelatedDetection: async (strictMode: boolean = false): Promise<any> => {
+    const res = await fetch(`${API_BASE}/correlated-events/run-detection?strict_mode=${strictMode}`, {
+      method: 'POST'
+    });
+    if (!res.ok) throw new Error('Failed to run correlated detection');
     return res.json();
   }
 };

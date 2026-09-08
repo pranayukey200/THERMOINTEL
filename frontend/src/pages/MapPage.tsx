@@ -21,7 +21,9 @@ import {
   ChevronDown,
   Check,
   Navigation,
-  Eye
+  Eye,
+  ChevronLeft,
+  Radio
 } from 'lucide-react';
 import { CommandMap, getClassificationColor, getClassificationColorName } from '../components/CommandMap';
 import { SourceDetailModal } from '../components/SourceDetailModal';
@@ -78,6 +80,17 @@ export const MapPage: React.FC = () => {
     riskBand?: string;
   } | null>(null);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
+
+  // Correlated Thermal Activity Cluster Inspection State
+  const [clusterState, setClusterState] = useState<{
+    clusterId: string;
+    sourceIds: number[];
+    regionName: string;
+    zScore?: string;
+    lat: number;
+    lon: number;
+    currentMemberIndex: number;
+  } | null>(null);
 
   // Search & Navigation State
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
@@ -157,6 +170,33 @@ export const MapPage: React.FC = () => {
         }
       }
     }
+
+    const clusterIdParam = searchParams.get('cluster_id');
+    const sourcesParam = searchParams.get('sources');
+    const nameParam = searchParams.get('name');
+    const zParam = searchParams.get('z');
+
+    if (sourcesParam) {
+      const sids = sourcesParam
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !isNaN(n));
+      if (sids.length > 0) {
+        const cLat = latParam ? parseFloat(latParam) : 0;
+        const cLon = lonParam ? parseFloat(lonParam) : 0;
+        const region = nameParam ? decodeURIComponent(nameParam) : 'Spatial Cluster';
+        setClusterState({
+          clusterId: clusterIdParam || 'CORRELATED-CLUSTER',
+          sourceIds: sids,
+          regionName: region,
+          zScore: zParam || undefined,
+          lat: cLat,
+          lon: cLon,
+          currentMemberIndex: 0
+        });
+        setSearchFeedback(`⚡ Correlated Cluster [${clusterIdParam || 'ACTIVE'}]: ${sids.length} synchronized surge hotspots in ${region}`);
+      }
+    }
   }, [searchParams]);
 
   // Synchronize inspection metadata with loaded mapPoints if lat/lon were not provided in URL
@@ -195,6 +235,47 @@ export const MapPage: React.FC = () => {
     setTargetLocation(null);
     setSearchFeedback('');
     setIsDossierModalOpen(false);
+  };
+
+  const handleClusterCycleSource = (direction: 'prev' | 'next') => {
+    if (!clusterState || clusterState.sourceIds.length === 0) return;
+    const len = clusterState.sourceIds.length;
+    const newIdx = direction === 'next'
+      ? (clusterState.currentMemberIndex + 1) % len
+      : (clusterState.currentMemberIndex - 1 + len) % len;
+
+    const targetId = clusterState.sourceIds[newIdx];
+    setClusterState((prev) => prev ? { ...prev, currentMemberIndex: newIdx } : null);
+    setSelectedSourceId(targetId);
+
+    const pt = mapPoints.find((p) => (p.id ?? p.thermal_source_id) === targetId);
+    if (pt) {
+      const pLat = pt.lat ?? pt.latitude;
+      const pLon = pt.lon ?? pt.longitude;
+      if (pLat !== undefined && pLon !== undefined) {
+        setInspectedMeta({
+          id: targetId,
+          lat: pLat,
+          lon: pLon,
+          classification: pt.classification,
+          riskScore: pt.risk_score,
+          riskBand: pt.risk_band
+        });
+        setTargetLocation({
+          lat: pLat,
+          lon: pLon,
+          zoom: 15.5,
+          label: `Cluster Member #${newIdx + 1}: SRC-${targetId} (${pt.classification || 'Hotspot'})`,
+          count: 1
+        });
+        setSearchFeedback(`📍 Cluster Member #${newIdx + 1}/${len}: SRC-${targetId} at [${pLat.toFixed(4)}°N, ${pLon.toFixed(4)}°E]`);
+      }
+    }
+  };
+
+  const handleClearClusterInspection = () => {
+    setClusterState(null);
+    handleClearInspection();
   };
 
   // Accurate dynamic counter state (synchronized with both /analytics/summary and /analytics/risk)
@@ -528,6 +609,7 @@ export const MapPage: React.FC = () => {
           targetLocation={targetLocation}
           onResetLocation={() => setTargetLocation(null)}
           showHazardZones={true}
+          clusterSourceIds={clusterState ? clusterState.sourceIds : undefined}
         />
       </div>
 
@@ -1245,8 +1327,98 @@ export const MapPage: React.FC = () => {
         />
       )}
 
+      {/* ══════════════════ CORRELATED CLUSTER TACTICAL HUD CARD ══════════════════ */}
+      {clusterState && (
+        <div
+          id="correlated-cluster-hud"
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 lg:left-[calc(50%+170px)] z-30 w-[94%] sm:w-auto min-w-[360px] sm:max-w-2xl bg-[#12100E]/95 backdrop-blur-xl border border-[#D9531E] border-l-4 border-l-[#D9531E] shadow-[0_16px_50px_rgba(0,0,0,0.8)] p-3.5 sm:p-4 text-white select-none transition-all animate-fade-in pointer-events-auto"
+        >
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            {/* Cluster Identity and Meta */}
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 bg-[#D9531E]/20 border border-[#D9531E] flex items-center justify-center flex-shrink-0 relative">
+                <Radio className="w-5 h-5 text-[#D9531E] animate-pulse" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#D9531E] animate-ping" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-mono font-bold tracking-widest text-[#D9531E] uppercase">
+                    CORRELATED THERMAL EVENT
+                  </span>
+                  <span className="text-[10px] font-mono text-white/40">&bull;</span>
+                  <span className="font-mono text-xs font-bold text-white tracking-wider">
+                    {clusterState.clusterId}
+                  </span>
+                  {clusterState.zScore && (
+                    <span className="px-2 py-0.5 text-[9px] font-mono font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/40">
+                      +{clusterState.zScore}σ Regional Z-Score
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-xs font-sans font-medium text-slate-200 truncate mt-0.5 flex items-center gap-2">
+                  <span className="font-bold text-white">{clusterState.regionName}</span>
+                  <span className="text-white/40">&bull;</span>
+                  <span className="text-xs text-[#D9531E] font-mono">
+                    {clusterState.sourceIds.length} Synchronized Hotspots
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Stepper / Actions */}
+            <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10">
+              {/* Stepper Controls */}
+              <div className="flex items-center gap-1 bg-[#1E1B18] px-2 py-1 border border-[#D0C9BE]/30">
+                <button
+                  id="btn-cluster-prev"
+                  onClick={() => handleClusterCycleSource('prev')}
+                  className="p-1 hover:bg-white/10 text-white transition-colors cursor-pointer"
+                  title="Previous Cluster Source"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="font-mono text-[11px] px-1 text-slate-300 whitespace-nowrap">
+                  {selectedSourceId ? `SRC-${selectedSourceId} (${clusterState.currentMemberIndex + 1}/${clusterState.sourceIds.length})` : `${clusterState.sourceIds.length} Sources`}
+                </span>
+                <button
+                  id="btn-cluster-next"
+                  onClick={() => handleClusterCycleSource('next')}
+                  className="p-1 hover:bg-white/10 text-white transition-colors cursor-pointer"
+                  title="Next Cluster Source"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {selectedSourceId && (
+                <button
+                  id="btn-cluster-dossier"
+                  onClick={() => setIsDossierModalOpen(true)}
+                  className="px-3 py-1.5 bg-[#D9531E] hover:bg-[#B84214] text-white font-sans font-bold text-xs transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                  title="Open Intelligence Dossier for current source"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Dossier</span>
+                </button>
+              )}
+
+              <button
+                id="btn-exit-cluster"
+                onClick={handleClearClusterInspection}
+                className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                title="Exit Cluster Inspection Mode"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ══════════════════ TACTICAL INSPECTION HUD CARD ══════════════════ */}
-      {selectedSourceId && inspectedMeta && !isDossierModalOpen && (
+      {selectedSourceId && inspectedMeta && !isDossierModalOpen && !clusterState && (
         <div
           id="tactical-inspection-hud"
           className="absolute bottom-6 left-1/2 -translate-x-1/2 lg:left-[calc(50%+170px)] z-30 w-[92%] sm:w-auto min-w-[340px] sm:max-w-xl bg-[#12100E]/95 backdrop-blur-xl border border-[#D9531E]/60 shadow-[0_12px_40px_rgba(0,0,0,0.7)] p-3.5 sm:p-4 text-white select-none transition-all animate-fade-in pointer-events-auto"

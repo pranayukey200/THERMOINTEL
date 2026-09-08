@@ -39,6 +39,7 @@ interface CommandMapProps {
   targetLocation?: TargetLocation | null;
   onResetLocation?: () => void;
   showHazardZones?: boolean;
+  clusterSourceIds?: number[];
 }
 
 type BasemapMode = 'satellite' | 'standard';
@@ -201,7 +202,8 @@ export const CommandMap: React.FC<CommandMapProps> = ({
   onSelectRiskBand,
   targetLocation,
   onResetLocation,
-  showHazardZones = true
+  showHazardZones = true,
+  clusterSourceIds = []
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapInstance | null>(null);
@@ -608,8 +610,42 @@ export const CommandMap: React.FC<CommandMapProps> = ({
           'circle-stroke-width': 2.5
         }
       });
+
+      const hasClusterInit = Array.isArray(clusterSourceIds) && clusterSourceIds.length > 0;
+      const initClusterFilter: any = hasClusterInit
+        ? ['all', ['!', ['has', 'point_count']], ['in', ['get', 'id'], ['literal', clusterSourceIds]]]
+        : ['==', ['get', 'id'], -999999];
+
+      // Correlated Cluster Members Glow Layer
+      map.addLayer({
+        id: 'cluster-members-glow',
+        type: 'circle',
+        source: 'thermal-sources',
+        filter: initClusterFilter,
+        paint: {
+          'circle-radius': 22,
+          'circle-color': 'rgba(217, 83, 30, 0.22)',
+          'circle-stroke-color': '#D9531E',
+          'circle-stroke-width': 2.5
+        }
+      });
+
+      // Correlated Cluster Members Pulse Core
+      map.addLayer({
+        id: 'cluster-members-pulse',
+        type: 'circle',
+        source: 'thermal-sources',
+        filter: initClusterFilter,
+        paint: {
+          'circle-radius': 8,
+          'circle-color': '#D9531E',
+          'circle-stroke-color': '#FFFFFF',
+          'circle-stroke-width': 1.5,
+          'circle-opacity': 0.85
+        }
+      });
     }
-  }, [createGeoJSON, createHazardGeoJSON, selectedSourceId, showHeatmap]);
+  }, [createGeoJSON, createHazardGeoJSON, selectedSourceId, showHeatmap, clusterSourceIds]);
 
   // Initialize MapLibre
   useEffect(() => {
@@ -713,7 +749,7 @@ export const CommandMap: React.FC<CommandMapProps> = ({
 
     const handleFeatureClick = (e: any) => {
       const features = map.queryRenderedFeatures(e.point, {
-        layers: ['thermal-circles', 'thermal-critical-halo', 'selected-point-glow']
+        layers: ['thermal-circles', 'thermal-critical-halo', 'selected-point-glow', 'cluster-members-glow', 'cluster-members-pulse']
       });
       if (!features || features.length === 0) return;
       const feat = features[0];
@@ -792,7 +828,7 @@ export const CommandMap: React.FC<CommandMapProps> = ({
     });
 
     // Unclustered point interactions
-    const pointLayers = ['thermal-circles', 'thermal-critical-halo', 'selected-point-glow'];
+    const pointLayers = ['thermal-circles', 'thermal-critical-halo', 'selected-point-glow', 'cluster-members-glow', 'cluster-members-pulse'];
     pointLayers.forEach((layerId) => {
       map.on('click', layerId, handleFeatureClick);
       map.on('mousemove', layerId, handleFeatureHover);
@@ -990,6 +1026,66 @@ export const CommandMap: React.FC<CommandMapProps> = ({
       map.setPaintProperty('thermal-critical-halo', 'circle-opacity', showHeatmap ? 0.35 : 0.95);
     }
   }, [showHeatmap, mapLoaded]);
+
+  // Update Cluster Highlight & Auto Framing when clusterSourceIds change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    const hasCluster = Array.isArray(clusterSourceIds) && clusterSourceIds.length > 0;
+    const filterExpr: any = hasCluster
+      ? ['all', ['!', ['has', 'point_count']], ['in', ['get', 'id'], ['literal', clusterSourceIds]]]
+      : ['==', ['get', 'id'], -999999];
+
+    if (map.getLayer('cluster-members-glow')) {
+      map.setFilter('cluster-members-glow', filterExpr);
+    }
+    if (map.getLayer('cluster-members-pulse')) {
+      map.setFilter('cluster-members-pulse', filterExpr);
+    }
+
+    if (hasCluster && Array.isArray(points) && points.length > 0 && selectedSourceId === null) {
+      const clusterPoints = points.filter((p) => {
+        const sid = p.id ?? p.thermal_source_id;
+        return sid !== undefined && clusterSourceIds.includes(sid);
+      });
+      if (clusterPoints.length > 0) {
+        if (clusterPoints.length === 1) {
+          const pt = clusterPoints[0];
+          const pLon = pt.lon ?? pt.longitude;
+          const pLat = pt.lat ?? pt.latitude;
+          if (pLon !== undefined && pLat !== undefined) {
+            map.flyTo({
+              center: [pLon, pLat],
+              zoom: 14.5,
+              pitch: 0,
+              duration: 1200
+            });
+          }
+        } else {
+          let minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+          let validCount = 0;
+          clusterPoints.forEach((p) => {
+            const lon = p.lon ?? p.longitude;
+            const lat = p.lat ?? p.latitude;
+            if (lon !== undefined && lat !== undefined) {
+              if (lon < minLon) minLon = lon;
+              if (lon > maxLon) maxLon = lon;
+              if (lat < minLat) minLat = lat;
+              if (lat > maxLat) maxLat = lat;
+              validCount++;
+            }
+          });
+          if (validCount > 0) {
+            map.fitBounds(
+              [[minLon, minLat], [maxLon, maxLat]],
+              { padding: 100, maxZoom: 14.0, duration: 1300 }
+            );
+          }
+        }
+      }
+    }
+  }, [clusterSourceIds, points, mapLoaded, selectedSourceId]);
 
   // Switch Basemap Layer visibility smoothly without reloading style or losing thermal dots
   const handleBasemapChange = (mode: BasemapMode) => {
