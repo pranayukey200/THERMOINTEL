@@ -125,6 +125,8 @@ class MapPoint(BaseModel):
     industrial_context_score: int
     satellite_evidence_status: str
     evidence_quality: Optional[str] = None
+    district: Optional[str] = None
+    state: Optional[str] = None
 
 class PaginatedSourcesResponse(BaseModel):
     items: List[ThermalSourceDetail]

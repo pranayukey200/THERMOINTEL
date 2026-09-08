@@ -102,6 +102,8 @@ def _build_filter_clause(
     has_industrial_context: Optional[bool] = None,
     search: Optional[str] = None,
     is_alert: Optional[bool] = None,
+    district: Optional[str] = None,
+    state: Optional[str] = None,
 ) -> tuple[str, list]:
     """Helper to build WHERE clause and query parameters."""
     conditions = []
@@ -221,6 +223,14 @@ def _build_filter_clause(
                     term = f"%{search}%"
                     params.extend([term, term, term, term])
 
+    if district:
+        conditions.append("district = ?")
+        params.append(district.strip())
+
+    if state:
+        conditions.append("state = ?")
+        params.append(state.strip())
+
     where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
     return where_clause, params
 
@@ -301,6 +311,8 @@ def get_map_points(
     has_industrial_context: Optional[bool] = None,
     search: Optional[str] = None,
     is_alert: Optional[bool] = Query(None, description="Filter by urgent triage alerts (59 points)"),
+    district: Optional[str] = Query(None, description="Filter by district name"),
+    state: Optional[str] = Query(None, description="Filter by state name"),
     limit: Optional[int] = Query(20000, le=20000)
 ):
     """
@@ -310,7 +322,8 @@ def get_map_points(
     where_clause, params = _build_filter_clause(
         classification, risk_band, anomaly_status, evidence_quality,
         satellite_evidence_status, min_risk_score, max_risk_score, min_frp,
-        min_lat, max_lat, min_lon, max_lon, has_industrial_context, search, is_alert
+        min_lat, max_lat, min_lon, max_lon, has_industrial_context, search, is_alert,
+        district, state
     )
 
     query = f"""
@@ -329,7 +342,9 @@ def get_map_points(
         max_frp,
         industrial_context_score,
         satellite_evidence_status,
-        evidence_quality
+        evidence_quality,
+        district,
+        state
     FROM thermal_sources
     {where_clause}
     LIMIT ?

@@ -16,7 +16,10 @@ import {
   SearchSuggestion,
   TacticalIncidentBrief,
   DisambiguationMatrixResponse,
-  CorrelatedThermalEvent
+  CorrelatedThermalEvent,
+  DistrictBenchmarkResponse,
+  StateBenchmarkResponse,
+  DistrictBenchmarkItem
 } from '../types';
 
 const API_BASE = '/api';
@@ -89,6 +92,12 @@ export const api = {
     }
     if (filters.is_alert !== undefined) {
       params.set('is_alert', filters.is_alert.toString());
+    }
+    if (filters.district) {
+      params.set('district', filters.district);
+    }
+    if (filters.state) {
+      params.set('state', filters.state);
     }
 
     const res = await fetch(`${API_BASE}/sources/map-points?${params.toString()}`);
@@ -215,6 +224,34 @@ export const api = {
       method: 'POST'
     });
     if (!res.ok) throw new Error('Failed to run correlated detection');
+    return res.json();
+  },
+
+  // District & State Thermal Risk Benchmarks
+  getDistrictBenchmarks: async (mode: string = 'all', state?: string): Promise<DistrictBenchmarkResponse> => {
+    const params = new URLSearchParams();
+    if (mode) params.set('mode', mode);
+    if (state && state !== 'ALL') params.set('state', state);
+    const res = await fetch(`${API_BASE}/benchmarks/districts?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch district benchmarks');
+    return res.json();
+  },
+
+  getStateBenchmarks: async (mode: string = 'all'): Promise<StateBenchmarkResponse> => {
+    const params = new URLSearchParams();
+    if (mode) params.set('mode', mode);
+    const res = await fetch(`${API_BASE}/benchmarks/states?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch state benchmarks');
+    return res.json();
+  },
+
+  getDistrictDetail: async (districtName: string): Promise<{
+    district: DistrictBenchmarkItem;
+    top_sources: any[];
+    satellite_evidence_samples: any[];
+  }> => {
+    const res = await fetch(`${API_BASE}/benchmarks/districts/${encodeURIComponent(districtName)}`);
+    if (!res.ok) throw new Error(`Failed to fetch district details for ${districtName}`);
     return res.json();
   }
 };

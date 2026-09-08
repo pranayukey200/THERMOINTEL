@@ -9,6 +9,7 @@ import AlertsPage from './pages/AlertsPage';
 import ExplainabilityPage from './pages/ExplainabilityPage';
 import ContactPage from './pages/ContactPage';
 import ReportPage from './pages/ReportPage';
+import BenchmarksPage from './pages/BenchmarksPage';
 import { LanguageProvider } from './context/LanguageContext';
 
 export const App: React.FC = () => {
@@ -23,6 +24,7 @@ export const App: React.FC = () => {
             <Route path="threat-profiles" element={<ThreatProfilesPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="alerts" element={<AlertsPage />} />
+            <Route path="benchmarks" element={<BenchmarksPage />} />
             <Route path="explainability" element={<ExplainabilityPage />} />
             <Route path="contact" element={<ContactPage />} />
             <Route path="report" element={<ReportPage />} />

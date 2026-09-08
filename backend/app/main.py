@@ -12,8 +12,9 @@ from fastapi.responses import JSONResponse, FileResponse
 
 from app.config import settings
 from app.database import execute_one
-from app.routes import sources, analytics, alerts, explainability, tactical, correlated_events
+from app.routes import sources, analytics, alerts, explainability, tactical, correlated_events, benchmarks
 from app.services.correlated_detection import compute_grid_baselines, run_correlated_detection
+from app.services.district_benchmark import assign_sources_to_districts
 
 app = FastAPI(
     title="THERMOINTEL API",
@@ -52,16 +53,18 @@ app.include_router(alerts.router, prefix=settings.API_PREFIX)
 app.include_router(explainability.router, prefix=settings.API_PREFIX)
 app.include_router(tactical.router, prefix=settings.API_PREFIX)
 app.include_router(correlated_events.router, prefix=settings.API_PREFIX)
+app.include_router(benchmarks.router, prefix=settings.API_PREFIX)
 
 @app.on_event("startup")
 def on_startup():
-    """Ensure grid baselines and initial correlated events are ready."""
+    """Ensure grid baselines, district tagging, and initial correlated events are ready."""
     try:
         compute_grid_baselines()
         run_correlated_detection()
-        print("[THERMOINTEL] Correlated Thermal Activity Detection engine initialized.")
+        assign_sources_to_districts()
+        print("[THERMOINTEL] Correlated detection & district benchmarks initialized.")
     except Exception as err:
-        print(f"[THERMOINTEL WARNING] Failed to initialize correlated detection: {err}")
+        print(f"[THERMOINTEL WARNING] Failed to initialize analytics engines: {err}")
 
 START_TIME = time.time()
 

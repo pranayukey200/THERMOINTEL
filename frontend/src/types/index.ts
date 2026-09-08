@@ -143,6 +143,8 @@ export interface MapPoint {
   industrial_context_score: number;
   satellite_evidence_status: string;
   evidence_quality?: string;
+  district?: string;
+  state?: string;
 }
 
 export interface PaginatedSourcesResponse {
@@ -285,6 +287,8 @@ export interface FilterState {
   search: string;
   has_industrial_context?: boolean;
   is_alert?: boolean;
+  district?: string;
+  state?: string;
 }
 
 export interface SearchSuggestion {
@@ -329,5 +333,66 @@ export interface CorrelatedThermalEvent {
   detection_run_id: number;
   member_sources?: any[];
 }
+
+export interface DistrictBenchmarkItem {
+  district: string;
+  state: string;
+  area_sqkm: number;
+  total_sources: number;
+  source_density: number;
+  avg_risk_score: number;
+  high_crit_count: number;
+  high_crit_share: number;
+  mean_frp: number;
+  peak_frp: number;
+  classification_counts: Record<string, number>;
+  dominant_tag: 'INDUSTRIAL_DOMINANT' | 'AGRICULTURAL_DOMINANT';
+  centroid: [number, number];
+  bbox?: [number, number, number, number];
+  primary_industries?: string;
+  density_percentile?: number;
+  risk_percentile?: number;
+  peak_frp_percentile?: number;
+  benchmark_score: number;
+  prior_benchmark_score?: number;
+  trend_delta_pct?: number;
+  rank?: number | null;
+  status_note?: string;
+}
+
+export interface DistrictBenchmarkResponse {
+  mode: 'all' | 'industrial';
+  window_current: string;
+  window_prior: string;
+  total_districts_monitored: number;
+  eligible_count: number;
+  insufficient_count: number;
+  ranked_leaderboard: DistrictBenchmarkItem[];
+  insufficient_data: DistrictBenchmarkItem[];
+}
+
+export interface StateBenchmarkItem {
+  state: string;
+  benchmark_score: number;
+  prior_benchmark_score?: number;
+  trend_delta_pct: number;
+  total_sources: number;
+  total_area_sqkm: number;
+  state_density: number;
+  high_crit_count: number;
+  district_count: number;
+  classification_counts: Record<string, number>;
+  dominant_tag: 'INDUSTRIAL_DOMINANT' | 'AGRICULTURAL_DOMINANT';
+  rank?: number;
+}
+
+export interface StateBenchmarkResponse {
+  mode: 'all' | 'industrial';
+  window_current: string;
+  window_prior: string;
+  state_count: number;
+  ranked_states: StateBenchmarkItem[];
+}
+
 
 

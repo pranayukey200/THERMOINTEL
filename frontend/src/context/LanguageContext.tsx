@@ -7,6 +7,7 @@ export interface Translations {
   thermal_matrix: string;
   analytics: string;
   alerts: string;
+  benchmarks: string;
   triage: string;
   // Hero / Landing
   sources_monitored: string;
@@ -81,6 +82,7 @@ export const translations: Record<Language, Translations> = {
     thermal_matrix: 'THERMAL MATRIX',
     analytics: 'ANALYTICS',
     alerts: 'ALERTS',
+    benchmarks: 'BENCHMARKS',
     triage: 'TRIAGE',
     // Hero / Landing
     sources_monitored: '15,436 Thermal Sources Monitored • VIIRS & Sentinel-2',
@@ -151,6 +153,7 @@ export const translations: Record<Language, Translations> = {
     thermal_matrix: 'थर्मल मैट्रिक्स',
     analytics: 'एनालिटिक्स',
     alerts: 'अलर्ट्स',
+    benchmarks: 'बेंचमार्क',
     triage: 'ट्राइएज',
     // Hero / Landing
     sources_monitored: '15,436 थर्मल स्रोतों की निगरानी • VIIRS और सेंटिनल-2',

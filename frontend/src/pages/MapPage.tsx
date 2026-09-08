@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Flame,
   AlertTriangle,
@@ -60,6 +60,7 @@ const EVIDENCE_QUALITIES = [
 
 export const MapPage: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { lang, t } = useLanguage();
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [mapPoints, setMapPoints] = useState<MapPoint[]>([]);
@@ -92,6 +93,25 @@ export const MapPage: React.FC = () => {
     currentMemberIndex: number;
   } | null>(null);
 
+  // District / State Benchmark Filter & HUD State
+  const [districtBenchmarkState, setDistrictBenchmarkState] = useState<{
+    district?: string;
+    state?: string;
+    isStateOnly?: boolean;
+  } | null>(() => {
+    const filterDistrict = searchParams.get('filter_district') === 'true';
+    const filterState = searchParams.get('filter_state') === 'true';
+    const d = searchParams.get('district');
+    const s = searchParams.get('state');
+    if (filterDistrict && d) {
+      return { district: decodeURIComponent(d), state: s ? decodeURIComponent(s) : undefined, isStateOnly: false };
+    }
+    if (filterState && s) {
+      return { state: decodeURIComponent(s), isStateOnly: true };
+    }
+    return null;
+  });
+
   // Search & Navigation State
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
@@ -121,7 +141,12 @@ export const MapPage: React.FC = () => {
     min_frp: 0,
     search: '',
     has_industrial_context: undefined,
-    is_alert: undefined
+    is_alert: undefined,
+    district:
+      searchParams.get('filter_district') === 'true' && searchParams.get('district')
+        ? decodeURIComponent(searchParams.get('district')!)
+        : undefined,
+    state: searchParams.get('state') ? decodeURIComponent(searchParams.get('state')!) : undefined
   });
 
   useEffect(() => {
@@ -197,6 +222,53 @@ export const MapPage: React.FC = () => {
         setSearchFeedback(`⚡ Correlated Cluster [${clusterIdParam || 'ACTIVE'}]: ${sids.length} synchronized surge hotspots in ${region}`);
       }
     }
+
+    const districtParam = searchParams.get('district');
+    const stateParam = searchParams.get('state');
+    const filterDistrictParam = searchParams.get('filter_district') === 'true';
+    const filterStateParam = searchParams.get('filter_state') === 'true';
+
+    if (filterDistrictParam && districtParam) {
+      const decodedDistrict = decodeURIComponent(districtParam);
+      const decodedState = stateParam ? decodeURIComponent(stateParam) : undefined;
+      setDistrictBenchmarkState({
+        district: decodedDistrict,
+        state: decodedState,
+        isStateOnly: false
+      });
+      setFilters((prev) => ({
+        ...prev,
+        district: decodedDistrict,
+        ...(decodedState ? { state: decodedState } : {})
+      }));
+
+      if (latParam && lonParam) {
+        const dLat = parseFloat(latParam);
+        const dLon = parseFloat(lonParam);
+        if (!isNaN(dLat) && !isNaN(dLon)) {
+          setTargetLocation({
+            lat: dLat,
+            lon: dLon,
+            zoom: 10.5,
+            label: `${decodedDistrict} District (${decodedState || ''}) Benchmark Area`,
+            count: 0
+          });
+        }
+      }
+      setSearchFeedback(`📍 Spatial Boundary Filter: ${decodedDistrict} District (${decodedState || ''})`);
+    } else if (filterStateParam && stateParam) {
+      const decodedState = decodeURIComponent(stateParam);
+      setDistrictBenchmarkState({
+        state: decodedState,
+        isStateOnly: true
+      });
+      setFilters((prev) => ({
+        ...prev,
+        state: decodedState,
+        district: undefined
+      }));
+      setSearchFeedback(`📍 State Filter Active: ${decodedState}`);
+    }
   }, [searchParams]);
 
   // Synchronize inspection metadata with loaded mapPoints if lat/lon were not provided in URL
@@ -235,6 +307,16 @@ export const MapPage: React.FC = () => {
     setTargetLocation(null);
     setSearchFeedback('');
     setIsDossierModalOpen(false);
+  };
+
+  const handleClearDistrictBenchmark = () => {
+    setDistrictBenchmarkState(null);
+    setFilters((prev) => ({
+      ...prev,
+      district: undefined,
+      state: undefined
+    }));
+    setSearchFeedback('Cleared territorial benchmark boundary filter.');
   };
 
   const handleClusterCycleSource = (direction: 'prev' | 'next') => {
@@ -1484,6 +1566,67 @@ export const MapPage: React.FC = () => {
                 title="Exit Inspection Mode"
               >
                 <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════ DISTRICT / STATE BENCHMARK HUD CARD ══════════════════ */}
+      {districtBenchmarkState && !clusterState && !selectedSourceId && (
+        <div
+          id="district-benchmark-hud"
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 lg:left-[calc(50%+170px)] z-30 w-[94%] sm:w-auto min-w-[360px] sm:max-w-xl bg-[#12100E]/95 backdrop-blur-xl border border-[#D9531E] border-l-4 border-l-[#D9531E] shadow-[0_16px_50px_rgba(0,0,0,0.8)] p-3.5 sm:p-4 text-white select-none transition-all animate-fade-in pointer-events-auto"
+        >
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 bg-[#D9531E]/20 border border-[#D9531E] flex items-center justify-center flex-shrink-0">
+                <Compass className="w-5 h-5 text-[#D9531E]" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-bold tracking-widest text-[#D9531E] uppercase">
+                    {districtBenchmarkState.isStateOnly ? 'STATE RISK BENCHMARK' : 'DISTRICT RISK BENCHMARK'}
+                  </span>
+                  <span className="text-[10px] font-mono text-white/40">•</span>
+                  <span className="text-[10px] font-mono text-cyan-300 font-bold">
+                    FILTER ACTIVE
+                  </span>
+                </div>
+
+                <div className="text-sm font-sans font-bold text-white truncate mt-0.5 flex items-center gap-2">
+                  <span>
+                    {districtBenchmarkState.district
+                      ? `${districtBenchmarkState.district}, ${districtBenchmarkState.state || ''}`
+                      : districtBenchmarkState.state}
+                  </span>
+                  <span className="text-white/40">•</span>
+                  <span className="text-xs text-[#D9531E] font-mono font-bold">
+                    {mapPoints.length} Hotspots
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10">
+              <button
+                id="btn-back-to-benchmarks"
+                onClick={() => navigate('/benchmarks')}
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white font-sans font-bold text-xs transition-all cursor-pointer"
+                title="Return to risk benchmarks leaderboard"
+              >
+                Leaderboard
+              </button>
+
+              <button
+                id="btn-clear-district-filter"
+                onClick={handleClearDistrictBenchmark}
+                className="px-3 py-1.5 bg-[#D9531E] hover:bg-[#B84214] text-white font-sans font-bold text-xs transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                title="Clear district filter and show all India hotspots"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Clear Filter</span>
               </button>
             </div>
           </div>
