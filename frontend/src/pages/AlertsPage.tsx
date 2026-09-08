@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   ShieldAlert,
@@ -14,7 +15,8 @@ import {
   Radio,
   Download,
   Check,
-  Factory
+  Factory,
+  MapPin
 } from 'lucide-react';
 import { api } from '../services/api';
 import { AlertItem } from '../types';
@@ -23,12 +25,19 @@ import { getClassificationColor, getClassificationColorName } from '../component
 import { downloadTacticalBriefPdf } from '../utils/generateTacticalPdf';
 
 export const AlertsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedLevel, setSelectedLevel] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+
+  const handleInspectOnMap = (alert: AlertItem) => {
+    navigate(
+      `/map?source_id=${alert.thermal_source_id}&lat=${alert.latitude}&lon=${alert.longitude}&cls=${encodeURIComponent(alert.classification)}&risk=${alert.risk_score}&band=${alert.risk_band}&inspect=true`
+    );
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -183,9 +192,16 @@ export const AlertsPage: React.FC = () => {
                             <span className={`px-2.5 py-0.5 rounded-none text-[10px] font-sans font-bold uppercase tracking-[0.06em] ${getAlertLevelBadge(alert.alert_level)}`}>
                               {alert.alert_level}
                             </span>
-                            <span className="font-mono text-xs font-bold text-[#D9531E] group-hover:underline">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleInspectOnMap(alert);
+                              }}
+                              className="font-mono text-xs font-bold text-[#D9531E] hover:underline cursor-pointer inline-flex items-center gap-1"
+                              title="Inspect this hotspot on tactical map"
+                            >
                               SRC-{alert.thermal_source_id}
-                            </span>
+                            </button>
                             <span className="text-xs font-sans text-[#78716C]">&bull;</span>
                             <span className={`text-xs font-mono font-medium ${
                               alert.anomaly_status.includes('CRITICAL') ? 'text-[#991B1B]' :
@@ -285,6 +301,18 @@ export const AlertsPage: React.FC = () => {
                             title="Download PDF Brief"
                           >
                             <Download className="w-4 h-4" />
+                          </button>
+                          <button
+                            id={`btn-inspect-${alert.thermal_source_id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleInspectOnMap(alert);
+                            }}
+                            className="px-3.5 py-2 rounded-none bg-[#1E1B18] hover:bg-[#D9531E] text-white font-sans font-bold text-xs transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+                            title="Inspect Hotspot Location on Tactical GIS Map"
+                          >
+                            <MapPin className="w-3.5 h-3.5 text-[#EAE5DC]" />
+                            <span>Inspect</span>
                           </button>
                           <button
                             onClick={(e) => {

@@ -957,6 +957,10 @@ export const CommandMap: React.FC<CommandMapProps> = ({
         const lat = pt.lat ?? pt.latitude;
         const lon = pt.lon ?? pt.longitude;
         if (lat !== undefined && lon !== undefined && !isNaN(lat) && !isNaN(lon)) {
+          // If targetLocation is already targeting this coordinate, avoid redundant camera flight
+          if (targetLocation && Math.abs(targetLocation.lat - lat) < 0.0001 && Math.abs(targetLocation.lon - lon) < 0.0001) {
+            return;
+          }
           const currentZoom = map.getZoom();
           const targetZoom = Math.min(Math.max(currentZoom + 3.0, 15.2), 16.0);
           map.flyTo({
@@ -969,7 +973,7 @@ export const CommandMap: React.FC<CommandMapProps> = ({
         }
       }
     }
-  }, [selectedSourceId, points, mapLoaded, showHazardZones, is3DTilt, createHazardGeoJSON]);
+  }, [selectedSourceId, points, mapLoaded, showHazardZones, is3DTilt, createHazardGeoJSON, targetLocation]);
 
   // Update Heatmap visibility
   useEffect(() => {

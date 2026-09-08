@@ -283,6 +283,7 @@ export const SourceDetailModal: React.FC<SourceDetailModalProps> = ({ sourceId, 
 
             {/* Close Dossier */}
             <button
+              id="btn-close-source-modal"
               onClick={onClose}
               className="p-1.5 rounded-none text-[#5C554E] hover:text-[#1E1B18] hover:bg-[#EAE5DC] transition-colors cursor-pointer ml-1"
               aria-label="Close dialog"

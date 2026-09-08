@@ -66,6 +66,17 @@ export const MapPage: React.FC = () => {
     const param = searchParams.get('source_id') || searchParams.get('id');
     return param ? parseInt(param, 10) : null;
   });
+  const [isDossierModalOpen, setIsDossierModalOpen] = useState<boolean>(() => {
+    return searchParams.get('modal') === 'true';
+  });
+  const [inspectedMeta, setInspectedMeta] = useState<{
+    id: number;
+    lat: number;
+    lon: number;
+    classification?: string;
+    riskScore?: number;
+    riskBand?: string;
+  } | null>(null);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
 
   // Search & Navigation State
@@ -102,13 +113,89 @@ export const MapPage: React.FC = () => {
 
   useEffect(() => {
     const param = searchParams.get('source_id') || searchParams.get('id');
+    const latParam = searchParams.get('lat');
+    const lonParam = searchParams.get('lon');
+    const clsParam = searchParams.get('cls');
+    const riskParam = searchParams.get('risk');
+    const bandParam = searchParams.get('band');
+    const isInspect = searchParams.get('inspect') === 'true';
+
     if (param) {
       const parsed = parseInt(param, 10);
       if (!isNaN(parsed)) {
         setSelectedSourceId(parsed);
+
+        if (latParam && lonParam) {
+          const lat = parseFloat(latParam);
+          const lon = parseFloat(lonParam);
+          if (!isNaN(lat) && !isNaN(lon)) {
+            setTargetLocation({
+              lat,
+              lon,
+              zoom: 16.0,
+              label: `Inspecting Hotspot #SRC-${parsed}${clsParam ? ` (${clsParam})` : ''}`,
+              count: 1
+            });
+            setSearchFeedback(`📍 Inspecting Hotspot #SRC-${parsed} at [${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E]`);
+            setInspectedMeta({
+              id: parsed,
+              lat,
+              lon,
+              classification: clsParam ? decodeURIComponent(clsParam) : undefined,
+              riskScore: riskParam ? parseFloat(riskParam) : undefined,
+              riskBand: bandParam || undefined
+            });
+          }
+        } else {
+          setInspectedMeta((prev) => (prev?.id === parsed ? prev : { id: parsed, lat: 0, lon: 0 }));
+        }
+
+        if (searchParams.get('modal') === 'true') {
+          setIsDossierModalOpen(true);
+        } else if (isInspect) {
+          setIsDossierModalOpen(false);
+        }
       }
     }
   }, [searchParams]);
+
+  // Synchronize inspection metadata with loaded mapPoints if lat/lon were not provided in URL
+  useEffect(() => {
+    if (selectedSourceId && mapPoints.length > 0) {
+      const pt = mapPoints.find((p) => (p.id ?? p.thermal_source_id) === selectedSourceId);
+      if (pt) {
+        const pLat = pt.lat ?? pt.latitude;
+        const pLon = pt.lon ?? pt.longitude;
+        if (pLat !== undefined && pLon !== undefined && !isNaN(pLat) && !isNaN(pLon)) {
+          if (!targetLocation) {
+            setTargetLocation({
+              lat: pLat,
+              lon: pLon,
+              zoom: 16.0,
+              label: `Inspecting Hotspot #SRC-${selectedSourceId} (${pt.classification})`,
+              count: 1
+            });
+          }
+          setInspectedMeta({
+            id: selectedSourceId,
+            lat: pLat,
+            lon: pLon,
+            classification: pt.classification,
+            riskScore: pt.risk_score,
+            riskBand: pt.risk_band
+          });
+        }
+      }
+    }
+  }, [selectedSourceId, mapPoints, targetLocation]);
+
+  const handleClearInspection = () => {
+    setSelectedSourceId(null);
+    setInspectedMeta(null);
+    setTargetLocation(null);
+    setSearchFeedback('');
+    setIsDossierModalOpen(false);
+  };
 
   // Accurate dynamic counter state (synchronized with both /analytics/summary and /analytics/risk)
   const [counterStats, setCounterStats] = useState({
@@ -419,8 +506,7 @@ export const MapPage: React.FC = () => {
       is_alert: undefined
     });
     setIsAlertDirectoryOpen(false);
-    setTargetLocation(null);
-    setSearchFeedback('');
+    handleClearInspection();
   };
 
   return (
@@ -430,7 +516,10 @@ export const MapPage: React.FC = () => {
         <CommandMap
           points={mapPoints}
           selectedSourceId={selectedSourceId}
-          onSelectSource={(id) => setSelectedSourceId(id)}
+          onSelectSource={(id) => {
+            setSelectedSourceId(id);
+            setIsDossierModalOpen(true);
+          }}
           isLoading={isLoadingMap}
           showHeatmapExternal={showHeatmap}
           onToggleHeatmap={setShowHeatmap}
@@ -1149,11 +1238,84 @@ export const MapPage: React.FC = () => {
       )}
 
       {/* ══════════════════ INTEL DOSSIER MODAL ══════════════════ */}
-      {selectedSourceId && (
+      {selectedSourceId && isDossierModalOpen && (
         <SourceDetailModal
           sourceId={selectedSourceId}
-          onClose={() => setSelectedSourceId(null)}
+          onClose={() => setIsDossierModalOpen(false)}
         />
+      )}
+
+      {/* ══════════════════ TACTICAL INSPECTION HUD CARD ══════════════════ */}
+      {selectedSourceId && inspectedMeta && !isDossierModalOpen && (
+        <div
+          id="tactical-inspection-hud"
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 lg:left-[calc(50%+170px)] z-30 w-[92%] sm:w-auto min-w-[340px] sm:max-w-xl bg-[#12100E]/95 backdrop-blur-xl border border-[#D9531E]/60 shadow-[0_12px_40px_rgba(0,0,0,0.7)] p-3.5 sm:p-4 text-white select-none transition-all animate-fade-in pointer-events-auto"
+        >
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
+            {/* Icon + Beacon */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-[#D9531E]/20 border border-[#D9531E] flex items-center justify-center flex-shrink-0 relative">
+                <Crosshair className="w-5 h-5 text-[#D9531E]" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-mono font-bold tracking-widest text-[#D9531E] uppercase">
+                    INSPECTING HOTSPOT
+                  </span>
+                  <span className="text-[10px] font-mono text-white/40">&bull;</span>
+                  <span className="font-mono text-xs font-bold text-white tracking-wider">
+                    SRC-{inspectedMeta.id}
+                  </span>
+                  {inspectedMeta.riskBand && (
+                    <span className={`px-2 py-0.5 text-[9px] font-mono font-bold uppercase ${
+                      inspectedMeta.riskBand === 'CRITICAL' ? 'bg-red-500/20 text-red-400 border border-red-500/40' :
+                      inspectedMeta.riskBand === 'HIGH' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/40' :
+                      'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                    }`}>
+                      {inspectedMeta.riskBand}
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-xs font-sans font-medium text-slate-200 truncate mt-0.5 flex items-center gap-2">
+                  <span>{inspectedMeta.classification || 'Thermal Anomaly'}</span>
+                  {inspectedMeta.lat !== 0 && (
+                    <>
+                      <span className="text-white/40">&bull;</span>
+                      <span className="font-mono text-[11px] text-slate-400">
+                        {inspectedMeta.lat.toFixed(4)}°N, {inspectedMeta.lon.toFixed(4)}°E
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                id="btn-inspect-dossier"
+                onClick={() => setIsDossierModalOpen(true)}
+                className="px-3.5 py-2 bg-[#D9531E] hover:bg-[#B84214] text-white font-sans font-bold text-xs transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                title="Open complete intelligence dossier"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Dossier</span>
+              </button>
+
+              <button
+                id="btn-close-inspect"
+                onClick={handleClearInspection}
+                className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                title="Exit Inspection Mode"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
