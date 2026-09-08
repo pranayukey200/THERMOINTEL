@@ -10,6 +10,7 @@ import ExplainabilityPage from './pages/ExplainabilityPage';
 import ContactPage from './pages/ContactPage';
 import ReportPage from './pages/ReportPage';
 import BenchmarksPage from './pages/BenchmarksPage';
+import AiAssistantPage from './pages/AiAssistantPage';
 import { LanguageProvider } from './context/LanguageContext';
 
 export const App: React.FC = () => {
@@ -25,6 +26,7 @@ export const App: React.FC = () => {
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="alerts" element={<AlertsPage />} />
             <Route path="benchmarks" element={<BenchmarksPage />} />
+            <Route path="aiassistant" element={<AiAssistantPage />} />
             <Route path="explainability" element={<ExplainabilityPage />} />
             <Route path="contact" element={<ContactPage />} />
             <Route path="report" element={<ReportPage />} />

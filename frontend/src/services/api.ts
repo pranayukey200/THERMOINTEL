@@ -19,7 +19,9 @@ import {
   CorrelatedThermalEvent,
   DistrictBenchmarkResponse,
   StateBenchmarkResponse,
-  DistrictBenchmarkItem
+  DistrictBenchmarkItem,
+  ChatResponse,
+  StarterQuestion
 } from '../types';
 
 const API_BASE = '/api';
@@ -252,6 +254,29 @@ export const api = {
   }> => {
     const res = await fetch(`${API_BASE}/benchmarks/districts/${encodeURIComponent(districtName)}`);
     if (!res.ok) throw new Error(`Failed to fetch district details for ${districtName}`);
+    return res.json();
+  },
+
+  // Grounded Database Assistant
+  sendChatMessage: async (message: string, history?: any[]): Promise<ChatResponse> => {
+    const res = await fetch(`${API_BASE}/chat/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, history })
+    });
+    if (!res.ok) throw new Error('Failed to send message to assistant');
+    return res.json();
+  },
+
+  getChatStarters: async (): Promise<StarterQuestion[]> => {
+    const res = await fetch(`${API_BASE}/chat/starters`);
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  getChatStatus: async (): Promise<any> => {
+    const res = await fetch(`${API_BASE}/chat/status`);
+    if (!res.ok) return null;
     return res.json();
   }
 };

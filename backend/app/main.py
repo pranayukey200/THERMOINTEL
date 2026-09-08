@@ -11,8 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, FileResponse
 
 from app.config import settings
-from app.database import execute_one
-from app.routes import sources, analytics, alerts, explainability, tactical, correlated_events, benchmarks
+from app.routes import sources, analytics, alerts, explainability, tactical, correlated_events, benchmarks, chat
 from app.services.correlated_detection import compute_grid_baselines, run_correlated_detection
 from app.services.district_benchmark import assign_sources_to_districts
 
@@ -54,6 +53,7 @@ app.include_router(explainability.router, prefix=settings.API_PREFIX)
 app.include_router(tactical.router, prefix=settings.API_PREFIX)
 app.include_router(correlated_events.router, prefix=settings.API_PREFIX)
 app.include_router(benchmarks.router, prefix=settings.API_PREFIX)
+app.include_router(chat.router, prefix=settings.API_PREFIX)
 
 @app.on_event("startup")
 def on_startup():

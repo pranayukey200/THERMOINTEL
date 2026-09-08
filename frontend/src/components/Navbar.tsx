@@ -187,6 +187,24 @@ export const Navbar: React.FC = () => {
                 {t.benchmarks}
               </NavLink>
               <NavLink
+                to="/aiassistant"
+                className={({ isActive }) =>
+                  isDarkPage
+                    ? `relative py-1 whitespace-nowrap transition-colors hover:text-cyan-300 ${
+                        isActive
+                          ? 'text-cyan-400 font-extrabold after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] after:bg-cyan-400'
+                          : ''
+                      }`
+                    : `relative py-1 whitespace-nowrap transition-colors hover:text-[#1E1B18] ${
+                        isActive
+                          ? 'text-[#D9531E] font-extrabold after:absolute after:bottom-0 after:left-0 after:w-full after:h-[3px] after:bg-[#D9531E]'
+                          : ''
+                      }`
+                }
+              >
+                {t.ai_assistant}
+              </NavLink>
+              <NavLink
                 to="/explainability"
                 className={({ isActive }) =>
                   isDarkPage
@@ -303,6 +321,13 @@ export const Navbar: React.FC = () => {
             className="block py-2 font-bold hover:text-[#D9531E]"
           >
             BENCHMARKS (RISK LEADERBOARD)
+          </NavLink>
+          <NavLink
+            to="/aiassistant"
+            onClick={() => setMobileOpen(false)}
+            className="block py-2 font-bold hover:text-[#D9531E]"
+          >
+            AI ASSISTANT (DATABASE CHATBOT)
           </NavLink>
           <NavLink
             to="/analytics"

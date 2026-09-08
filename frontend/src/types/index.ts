@@ -394,5 +394,43 @@ export interface StateBenchmarkResponse {
   ranked_states: StateBenchmarkItem[];
 }
 
+export interface ToolCallTrace {
+  tool_name: string;
+  arguments: Record<string, any>;
+  result: any;
+  execution_ms: number;
+}
+
+export interface ChatActionLink {
+  type: string;
+  label: string;
+  url?: string;
+  prompt?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  tool_calls?: ToolCallTrace[];
+  action_links?: ChatActionLink[];
+  timestamp: string;
+  latency_ms?: number;
+}
+
+export interface ChatResponse {
+  reply: string;
+  tool_calls: ToolCallTrace[];
+  action_links: ChatActionLink[];
+  latency_ms: number;
+  timestamp: string;
+}
+
+export interface StarterQuestion {
+  category: string;
+  prompt: string;
+  tool: string;
+}
+
 
 

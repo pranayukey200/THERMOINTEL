@@ -8,6 +8,7 @@ export interface Translations {
   analytics: string;
   alerts: string;
   benchmarks: string;
+  ai_assistant: string;
   triage: string;
   // Hero / Landing
   sources_monitored: string;
@@ -83,6 +84,7 @@ export const translations: Record<Language, Translations> = {
     analytics: 'ANALYTICS',
     alerts: 'ALERTS',
     benchmarks: 'BENCHMARKS',
+    ai_assistant: 'AI ASSISTANT',
     triage: 'TRIAGE',
     // Hero / Landing
     sources_monitored: '15,436 Thermal Sources Monitored • VIIRS & Sentinel-2',
@@ -154,6 +156,7 @@ export const translations: Record<Language, Translations> = {
     analytics: 'एनालिटिक्स',
     alerts: 'अलर्ट्स',
     benchmarks: 'बेंचमार्क',
+    ai_assistant: 'AI सहायक',
     triage: 'ट्राइएज',
     // Hero / Landing
     sources_monitored: '15,436 थर्मल स्रोतों की निगरानी • VIIRS और सेंटिनल-2',
