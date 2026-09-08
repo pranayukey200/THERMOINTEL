@@ -154,6 +154,9 @@ class TimelinePoint(BaseModel):
     estimated_frp: float
     is_active: bool
     phase: str
+    day_frp: Optional[float] = None
+    night_frp: Optional[float] = None
+    daynight: Optional[str] = None
 
 class TimelineResponse(BaseModel):
     thermal_source_id: int

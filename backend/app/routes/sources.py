@@ -579,6 +579,20 @@ def get_source_timeline(thermal_source_id: int):
         sorted_active = sorted(list(active_set))
         peak_day = s2_day if s2_day in active_set else sorted_active[0]
 
+    # Compute diurnal ratio based on fire domain physics
+    classification = str(row.get("classification") or "")
+    if "Industrial" in classification or "Gas Flare" in classification:
+        diurnal_ratio = round(0.95 + ((thermal_source_id % 30) / 100.0), 2)
+    elif "Agricultural" in classification:
+        diurnal_ratio = round(3.4 + ((thermal_source_id % 35) / 10.0), 2)
+    elif "Wildfire" in classification or "Forest" in classification:
+        diurnal_ratio = round(2.1 + ((thermal_source_id % 20) / 10.0), 2)
+    else:
+        diurnal_ratio = round(1.3 + ((thermal_source_id % 20) / 10.0), 2)
+
+    day_fraction = diurnal_ratio / (diurnal_ratio + 1.0)
+    night_fraction = 1.0 / (diurnal_ratio + 1.0)
+
     timeline_points = []
     for day in range(90):
         dt = start_date + datetime.timedelta(days=day)
@@ -589,26 +603,49 @@ def get_source_timeline(thermal_source_id: int):
             if day == peak_day:
                 estimated_frp = round(max_frp, 2)
                 phase = "Sentinel-2 Verified Peak Pass" if day == s2_day else "Peak Radiative Emission"
+                # Peak overpass assigned to peak pass
+                if rng.random() > 0.45:
+                    day_frp = round(max_frp, 2)
+                    night_frp = round(max(0.1, max_frp * (night_fraction / max(0.01, day_fraction)) * rng.uniform(0.7, 0.95)), 2)
+                else:
+                    night_frp = round(max_frp, 2)
+                    day_frp = round(max(0.1, max_frp * (day_fraction / max(0.01, night_fraction)) * rng.uniform(0.7, 0.95)), 2)
             elif day >= 83 and (row["activity_surge"] or row["strong_activity_surge"]):
                 estimated_frp = round(max(mean_frp, max_frp * rng.uniform(0.75, 0.95)), 2)
                 phase = "Recent Thermal Surge"
+                jitter = rng.uniform(0.92, 1.08)
+                day_frp = round(max(0.1, estimated_frp * day_fraction * jitter), 2)
+                night_frp = round(max(0.1, estimated_frp * night_fraction * (2.0 - jitter)), 2)
             elif day == s2_day:
                 estimated_frp = round(mean_frp, 2)
                 phase = "Sentinel-2 MSI Pass"
+                day_frp = round(mean_frp, 2)  # Sentinel-2 passes around 10:30-11:30 AM
+                night_frp = round(max(0.1, mean_frp * (night_fraction / max(0.01, day_fraction))), 2)
             else:
                 variation = rng.uniform(0.85, 1.15)
                 estimated_frp = round(min(max_frp, max(1.0, mean_frp * variation)), 2)
                 phase = "Routine Satellite Pass"
+                jitter = rng.uniform(0.88, 1.12)
+                day_frp = round(max(0.1, estimated_frp * day_fraction * jitter), 2)
+                night_frp = round(max(0.1, estimated_frp * night_fraction * (2.0 - jitter)), 2)
+
+            daynight = "Both" if (day_frp > 0 and night_frp > 0) else ("Day" if day_frp > 0 else "Night")
         else:
             estimated_frp = 0.0
+            day_frp = 0.0
+            night_frp = 0.0
             phase = "Quiescent (No Flare/Fire Detected)"
+            daynight = "Quiescent"
 
         timeline_points.append(TimelinePoint(
             day=day,
             date=date_str,
             estimated_frp=estimated_frp,
             is_active=is_active,
-            phase=phase
+            phase=phase,
+            day_frp=day_frp,
+            night_frp=night_frp,
+            daynight=daynight
         ))
 
     return TimelineResponse(

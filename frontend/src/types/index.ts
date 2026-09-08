@@ -175,6 +175,9 @@ export interface TimelinePoint {
   estimated_frp: number;
   is_active: boolean;
   phase: string;
+  day_frp?: number;
+  night_frp?: number;
+  daynight?: string;
 }
 
 export interface TimelineResponse {
