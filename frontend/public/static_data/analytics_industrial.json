@@ -1,0 +1,1 @@
+{"with_industrial_context":5236,"without_industrial_context":10200,"score_bins":[{"label":"None (0)","count":10200,"percentage":66.08},{"label":"Low (1-25)","count":4159,"percentage":26.94},{"label":"Moderate (26-50)","count":947,"percentage":6.14},{"label":"High (51-75)","count":113,"percentage":0.73},{"label":"Very High (76-100)","count":17,"percentage":0.11}]}
