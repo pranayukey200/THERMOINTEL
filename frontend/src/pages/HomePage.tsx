@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
@@ -7,22 +7,74 @@ export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
 
+  // Alternating Video Loop:
+  // Video 1: Original forward video
+  // Video 2: Reverse video of original
+  // Sequence: 1 -> 2 -> 1 -> 2 -> 1 -> 2 ...
+  const [activeVideo, setActiveVideo] = useState<1 | 2>(1);
+  const video1Ref = useRef<HTMLVideoElement>(null);
+  const video2Ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (video1Ref.current) {
+      video1Ref.current.play().catch(() => {});
+    }
+  }, []);
+
+  const handleVideo1Ended = () => {
+    setActiveVideo(2);
+    if (video2Ref.current) {
+      video2Ref.current.currentTime = 0;
+      video2Ref.current.play().catch(() => {});
+    }
+  };
+
+  const handleVideo2Ended = () => {
+    setActiveVideo(1);
+    if (video1Ref.current) {
+      video1Ref.current.currentTime = 0;
+      video1Ref.current.play().catch(() => {});
+    }
+  };
+
   return (
     <div className="relative w-full h-screen overflow-hidden select-none bg-[#0A0908]">
-      {/* Ambient Floating Cinematic Video Background */}
+      {/* Ambient Floating Cinematic Video Background with Alternating Forward / Reverse Sequence */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none bg-[#0A0908]">
+        {/* Video 1: Original Forward */}
         <video
+          ref={video1Ref}
           autoPlay
-          loop
           muted
           playsInline
-          className="absolute inset-0 w-full h-full object-cover scale-105 filter blur-[1px] brightness-[0.85] contrast-[1.1] opacity-80 transition-opacity duration-1000"
+          preload="auto"
+          onEnded={handleVideo1Ended}
+          data-video-id="1"
+          className={`absolute inset-0 w-full h-full object-cover scale-105 filter blur-[1px] brightness-[0.85] contrast-[1.1] transition-opacity duration-700 ${
+            activeVideo === 1 ? 'opacity-80 z-[1]' : 'opacity-0 z-0'
+          }`}
         >
-          <source src="/hero_smoke_bg.mp4" type="video/mp4" />
+          <source src="/hero_video_forward.mp4" type="video/mp4" />
         </video>
+
+        {/* Video 2: Reverse of Original */}
+        <video
+          ref={video2Ref}
+          muted
+          playsInline
+          preload="auto"
+          onEnded={handleVideo2Ended}
+          data-video-id="2"
+          className={`absolute inset-0 w-full h-full object-cover scale-105 filter blur-[1px] brightness-[0.85] contrast-[1.1] transition-opacity duration-700 ${
+            activeVideo === 2 ? 'opacity-80 z-[1]' : 'opacity-0 z-0'
+          }`}
+        >
+          <source src="/hero_video_reverse.mp4" type="video/mp4" />
+        </video>
+
         {/* Soft Vignette & Subtle Gradients ensuring the video is clearly visible while keeping text crisp */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0A0908]/60 via-transparent to-[#0A0908]/75" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-black/20 via-transparent to-[#0A0908]/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0A0908]/60 via-transparent to-[#0A0908]/75 z-[2]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-black/20 via-transparent to-[#0A0908]/60 z-[2]" />
       </div>
 
       {/* Center Editorial Headline */}
