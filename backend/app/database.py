@@ -43,3 +43,74 @@ def execute_one(query: str, params: tuple = ()) -> dict | None:
         cursor = conn.cursor()
         cursor.execute(query, params)
         return cursor.fetchone()
+
+def init_chat_db():
+    """Initialize chat_history table in SQLite database."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS chat_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL DEFAULT 'default',
+                user_message TEXT NOT NULL,
+                assistant_reply TEXT NOT NULL,
+                tool_calls_json TEXT,
+                action_links_json TEXT,
+                latency_ms REAL DEFAULT 0.0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+
+# Ensure table exists on module load
+init_chat_db()
+
+def save_chat_message(
+    user_message: str,
+    assistant_reply: str,
+    tool_calls_json: str = "[]",
+    action_links_json: str = "[]",
+    latency_ms: float = 0.0,
+    session_id: str = "default"
+) -> int:
+    """Persist a conversation turn into SQLite chat_history table."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO chat_history (session_id, user_message, assistant_reply, tool_calls_json, action_links_json, latency_ms)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (session_id, user_message, assistant_reply, tool_calls_json, action_links_json, latency_ms))
+        conn.commit()
+        return cursor.lastrowid
+
+def get_chat_history(limit: int = 50, session_id: str | None = None) -> list[dict]:
+    """Retrieve persisted conversation turns from SQLite."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        if session_id:
+            cursor.execute("""
+                SELECT id, session_id, user_message, assistant_reply, tool_calls_json, action_links_json, latency_ms, created_at
+                FROM chat_history
+                WHERE session_id = ?
+                ORDER BY id ASC
+                LIMIT ?
+            """, (session_id, limit))
+        else:
+            cursor.execute("""
+                SELECT id, session_id, user_message, assistant_reply, tool_calls_json, action_links_json, latency_ms, created_at
+                FROM chat_history
+                ORDER BY id ASC
+                LIMIT ?
+            """, (limit,))
+        return cursor.fetchall()
+
+def clear_chat_history(session_id: str | None = None):
+    """Clear chat history in SQLite."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        if session_id:
+            cursor.execute("DELETE FROM chat_history WHERE session_id = ?", (session_id,))
+        else:
+            cursor.execute("DELETE FROM chat_history")
+        conn.commit()
+

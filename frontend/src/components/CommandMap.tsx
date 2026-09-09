@@ -375,12 +375,24 @@ export const CommandMap: React.FC<CommandMapProps> = ({
         clusterMaxZoom: 11, // At zoom 12+, clusters unpack into individual points
         clusterRadius: 50
       });
+    }
 
-      // Heatmap Layer (GPU Accelerated)
+    // 2b. Dedicated Unclustered Thermal GeoJSON Source for Continuous GPU Heatmap
+    // Essential: MapLibre heatmap layers ignore points inside clusters. By using an unclustered source,
+    // all 15,436 thermal points are smoothly rendered across India on the GPU at all zoom levels.
+    if (!map.getSource('thermal-heat-source')) {
+      const initialData = createGeoJSON();
+      map.addSource('thermal-heat-source', {
+        type: 'geojson',
+        data: initialData,
+        cluster: false
+      });
+
+      // Heatmap Layer (GPU Accelerated) on unclustered points
       map.addLayer({
         id: 'thermal-heat',
         type: 'heatmap',
-        source: 'thermal-sources',
+        source: 'thermal-heat-source',
         layout: {
           visibility: showHeatmap ? 'visible' : 'none'
         },
@@ -389,24 +401,26 @@ export const CommandMap: React.FC<CommandMapProps> = ({
             'interpolate',
             ['linear'],
             ['get', 'risk_score'],
-            0, 0.2,
-            50, 0.6,
-            100, 1.2
+            0, 0.25,
+            30, 0.5,
+            60, 0.9,
+            100, 1.5
           ],
           'heatmap-intensity': [
             'interpolate',
             ['linear'],
             ['zoom'],
-            0, 1,
-            9, 3
+            0, 0.8,
+            5, 1.6,
+            9, 3.2
           ],
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
             0, 'rgba(59, 130, 246, 0)',
-            0.2, '#3B82F6',
-            0.4, '#10B981',
+            0.15, 'rgba(59, 130, 246, 0.65)',
+            0.35, '#10B981',
             0.6, '#F59E0B',
             0.8, '#F97316',
             1.0, '#EF4444'
@@ -415,15 +429,18 @@ export const CommandMap: React.FC<CommandMapProps> = ({
             'interpolate',
             ['linear'],
             ['zoom'],
-            3, 15,
-            7, 30,
-            12, 50
+            2, 12,
+            5, 24,
+            8, 40,
+            12, 60
           ],
-          'heatmap-opacity': 0.85
+          'heatmap-opacity': 0.88
         }
       });
+    }
 
-      // Cluster Radiant Outer Halo Layer
+    // Cluster Radiant Outer Halo Layer
+    if (!map.getLayer('thermal-clusters-halo')) {
       map.addLayer({
         id: 'thermal-clusters-halo',
         type: 'circle',
@@ -852,9 +869,13 @@ export const CommandMap: React.FC<CommandMapProps> = ({
     if (!map || !mapLoaded) return;
 
     const src = map.getSource('thermal-sources') as GeoJSONSource | undefined;
+    const heatSrc = map.getSource('thermal-heat-source') as GeoJSONSource | undefined;
+    const data = createGeoJSON();
     if (src) {
-      const data = createGeoJSON();
       src.setData(data);
+    }
+    if (heatSrc) {
+      heatSrc.setData(data);
     }
 
     // Camera animation after filtration:
@@ -1011,7 +1032,7 @@ export const CommandMap: React.FC<CommandMapProps> = ({
     }
   }, [selectedSourceId, points, mapLoaded, showHazardZones, is3DTilt, createHazardGeoJSON, targetLocation]);
 
-  // Update Heatmap visibility
+  // Update Heatmap visibility & cluster dimming
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
@@ -1024,6 +1045,16 @@ export const CommandMap: React.FC<CommandMapProps> = ({
     }
     if (map.getLayer('thermal-critical-halo')) {
       map.setPaintProperty('thermal-critical-halo', 'circle-opacity', showHeatmap ? 0.35 : 0.95);
+    }
+    if (map.getLayer('thermal-clusters')) {
+      map.setPaintProperty('thermal-clusters', 'circle-opacity', showHeatmap ? 0.2 : 0.92);
+      map.setPaintProperty('thermal-clusters', 'circle-stroke-opacity', showHeatmap ? 0.25 : 1.0);
+    }
+    if (map.getLayer('thermal-clusters-halo')) {
+      map.setLayoutProperty('thermal-clusters-halo', 'visibility', showHeatmap ? 'none' : 'visible');
+    }
+    if (map.getLayer('thermal-cluster-count')) {
+      map.setLayoutProperty('thermal-cluster-count', 'visibility', showHeatmap ? 'none' : 'visible');
     }
   }, [showHeatmap, mapLoaded]);
 

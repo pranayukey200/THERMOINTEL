@@ -140,8 +140,10 @@ export interface MapPoint {
   anomaly_status: string;
   mean_frp: number;
   max_frp: number;
-  industrial_context_score: number;
-  satellite_evidence_status: string;
+  industrial_context_score?: number;
+  industrial_score?: number;
+  satellite_evidence_status?: string;
+  satellite_status?: string;
   evidence_quality?: string;
   district?: string;
   state?: string;

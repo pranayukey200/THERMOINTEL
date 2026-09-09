@@ -3,10 +3,12 @@ Chatbot API routes for grounded database thermal intelligence assistant.
 Provides endpoint for natural language query processing with tool-calling auditing.
 """
 from datetime import datetime
+import json
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Query
 from pydantic import BaseModel, Field
 from app.services.chatbot_service import process_chat_query
+from app.database import save_chat_message, get_chat_history, clear_chat_history
 
 router = APIRouter(prefix="/chat", tags=["Grounded Database Assistant"])
 
@@ -71,6 +73,7 @@ def handle_chat_message(req: ChatMessageRequest, request: Request):
     """
     Process a user message using safe, read-only database tool calling.
     Returns the grounded explanation alongside verifiable tool call audit traces.
+    Persists the conversation turn into SQLite database.
     """
     client_ip = request.client.host if request.client else "default"
     result = process_chat_query(
@@ -79,6 +82,19 @@ def handle_chat_message(req: ChatMessageRequest, request: Request):
         client_id=client_ip
     )
 
+    # Persist conversation turn in SQLite
+    try:
+        save_chat_message(
+            user_message=req.message,
+            assistant_reply=result["reply"],
+            tool_calls_json=json.dumps(result.get("tool_calls", [])),
+            action_links_json=json.dumps(result.get("action_links", [])),
+            latency_ms=result.get("latency_ms", 0.0),
+            session_id=client_ip
+        )
+    except Exception as e:
+        print(f"[Chat History Error] Could not persist message: {e}")
+
     return ChatResponse(
         reply=result["reply"],
         tool_calls=result.get("tool_calls", []),
@@ -86,6 +102,44 @@ def handle_chat_message(req: ChatMessageRequest, request: Request):
         latency_ms=result.get("latency_ms", 0.0),
         timestamp=datetime.utcnow().isoformat() + "Z"
     )
+
+@router.get("/history")
+def get_history(limit: int = Query(50, ge=1, le=200), session_id: Optional[str] = None):
+    """Retrieve persisted chat conversation turns from SQLite database."""
+    history_rows = get_chat_history(limit=limit, session_id=session_id)
+    # Parse JSON fields
+    formatted = []
+    for row in history_rows:
+        tool_calls = []
+        action_links = []
+        try:
+            if row.get("tool_calls_json"):
+                tool_calls = json.loads(row["tool_calls_json"])
+        except Exception:
+            pass
+        try:
+            if row.get("action_links_json"):
+                action_links = json.loads(row["action_links_json"])
+        except Exception:
+            pass
+
+        formatted.append({
+            "id": row["id"],
+            "session_id": row["session_id"],
+            "user_message": row["user_message"],
+            "assistant_reply": row["assistant_reply"],
+            "tool_calls": tool_calls,
+            "action_links": action_links,
+            "latency_ms": row.get("latency_ms", 0.0),
+            "created_at": row.get("created_at")
+        })
+    return formatted
+
+@router.delete("/history")
+def clear_history(session_id: Optional[str] = None):
+    """Clear chat conversation history in SQLite database."""
+    clear_chat_history(session_id=session_id)
+    return {"status": "success", "message": "Chat history cleared"}
 
 @router.get("/starters", response_model=List[Dict[str, Any]])
 def get_chat_starters():
@@ -108,3 +162,4 @@ def get_chat_status():
             "get_facility_info"
         ]
     }
+

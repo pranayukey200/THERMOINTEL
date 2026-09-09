@@ -152,7 +152,7 @@ def process_chat_query(
             action_links.append({
                 "type": "map_source",
                 "label": f"Inspect Source #{source_id} on Map",
-                "url": f"/map?source_id={source_id}&lat={tool_result['coordinates'][0]}&lon={tool_result['coordinates'][1]}&inspect=true"
+                "url": f"/map?source_id={source_id}&lat={tool_result['coordinates'][0]}&lon={tool_result['coordinates'][1]}&inspect=true&modal=true"
             })
 
     # 2. Source Dossier & Detail Query
@@ -178,7 +178,7 @@ def process_chat_query(
             action_links.append({
                 "type": "map_source",
                 "label": f"Inspect Hotspot #{source_id} on Live Map",
-                "url": f"/map?source_id={source_id}&lat={tool_result['coordinates'][0]}&lon={tool_result['coordinates'][1]}&inspect=true"
+                "url": f"/map?source_id={source_id}&lat={tool_result['coordinates'][0]}&lon={tool_result['coordinates'][1]}&inspect=true&modal=true"
             })
 
     # 3. Correlated Activity & Synchronized Surge Clusters
@@ -192,6 +192,8 @@ def process_chat_query(
         else:
             lines = [f"Found **{len(tool_result)} active correlated thermal activity events** across India:"]
             for idx, e in enumerate(tool_result[:4], 1):
+                c_lat = e.get('centroid_lat', 21.195)
+                c_lon = e.get('centroid_lon', 81.419)
                 lines.append(
                     f"\n**{idx}. Event [{e['event_id']}] — {e['region_name']}**\n"
                     f"   • Hotspot Count: **{e['source_count']} synchronized sources**\n"
@@ -202,7 +204,7 @@ def process_chat_query(
                 action_links.append({
                     "type": "map_cluster",
                     "label": f"Inspect Event {e['event_id']} on Map",
-                    "url": f"/map?cluster_id={e['event_id']}&sources={','.join(map(str, e['member_source_ids'][:10]))}&name={e['region_name']}&z={e['z_score']}"
+                    "url": f"/map?cluster_id={e['event_id']}&sources={','.join(map(str, e['member_source_ids'][:10]))}&name={e['region_name']}&z={e['z_score']}&lat={c_lat}&lon={c_lon}"
                 })
             reply = "\n".join(lines)
 
@@ -232,7 +234,7 @@ def process_chat_query(
                 action_links.append({
                     "type": "map_source",
                     "label": f"Inspect Source #{s['source_id']}",
-                    "url": f"/map?source_id={s['source_id']}&lat={s['latitude']}&lon={s['longitude']}&inspect=true"
+                    "url": f"/map?source_id={s['source_id']}&lat={s['latitude']}&lon={s['longitude']}&inspect=true&modal=true"
                 })
             reply = "\n".join(lines)
 
@@ -272,7 +274,7 @@ def process_chat_query(
                     "url": f"/map?state={tool_result['state']}&filter_state=true"
                 })
 
-    # 5. Threat Classification Breakdown
+    # 6. Threat Classification Breakdown
     elif any(k in lower_msg for k in ["classification", "breakdown", "types of fire", "classes", "distribution", "share"]):
         tool_name = "get_classification_breakdown"
         tool_args = {"region": location, "period": "current_30day"}
@@ -287,8 +289,18 @@ def process_chat_query(
                 f"• **{c['classification']}**: **{c['count']:,} sources** ({c['percentage']}%) — Avg Risk: **{c['avg_risk_score']}**, Mean FRP: **{c['avg_mean_frp_mw']} MW**"
             )
         reply = "\n".join(lines)
+        action_links.append({
+            "type": "analytics_breakdown",
+            "label": "Explore Visual Breakdown Charts",
+            "url": "/analytics"
+        })
+        action_links.append({
+            "type": "xai_matrix",
+            "label": "View Disambiguation Matrix (XAI)",
+            "url": "/xai"
+        })
 
-    # 6. Default / Top Risk Sources (Fallback)
+    # 7. Default / Top Risk Sources (Fallback)
     else:
         target_tier = tier or ("CRITICAL" if "alert" in lower_msg else None)
         tool_name = "get_top_risk_sources"
@@ -314,7 +326,7 @@ def process_chat_query(
                 action_links.append({
                     "type": "map_source",
                     "label": f"Inspect Source #{s['source_id']}",
-                    "url": f"/map?source_id={s['source_id']}&lat={s['latitude']}&lon={s['longitude']}&inspect=true"
+                    "url": f"/map?source_id={s['source_id']}&lat={s['latitude']}&lon={s['longitude']}&inspect=true&modal=true"
                 })
             reply = "\n".join(lines)
 

@@ -66,7 +66,7 @@ export const MapPage: React.FC = () => {
   const [mapPoints, setMapPoints] = useState<MapPoint[]>([]);
   const [isLoadingMap, setIsLoadingMap] = useState<boolean>(true);
   const [selectedSourceId, setSelectedSourceId] = useState<number | null>(() => {
-    const param = searchParams.get('source_id') || searchParams.get('id');
+    const param = searchParams.get('source_id') || searchParams.get('id') || searchParams.get('source');
     return param ? parseInt(param, 10) : null;
   });
   const [isDossierModalOpen, setIsDossierModalOpen] = useState<boolean>(() => {
@@ -150,7 +150,7 @@ export const MapPage: React.FC = () => {
   });
 
   useEffect(() => {
-    const param = searchParams.get('source_id') || searchParams.get('id');
+    const param = searchParams.get('source_id') || searchParams.get('id') || searchParams.get('source');
     const latParam = searchParams.get('lat');
     const lonParam = searchParams.get('lon');
     const clsParam = searchParams.get('cls');
@@ -185,7 +185,31 @@ export const MapPage: React.FC = () => {
             });
           }
         } else {
-          setInspectedMeta((prev) => (prev?.id === parsed ? prev : { id: parsed, lat: 0, lon: 0 }));
+          // Fetch coordinates & meta dynamically for the source ID
+          api.getSourceDetail(parsed).then((detail) => {
+            if (detail) {
+              const lat = detail.latitude ?? (detail as any).lat;
+              const lon = detail.longitude ?? (detail as any).lon;
+              if (lat !== undefined && lon !== undefined && !isNaN(lat) && !isNaN(lon)) {
+                setTargetLocation({
+                  lat,
+                  lon,
+                  zoom: 16.0,
+                  label: `Inspecting Hotspot #SRC-${parsed} (${detail.classification || ''})`,
+                  count: 1
+                });
+                setSearchFeedback(`📍 Inspecting Hotspot #SRC-${parsed} at [${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E]`);
+                setInspectedMeta({
+                  id: parsed,
+                  lat,
+                  lon,
+                  classification: detail.classification,
+                  riskScore: detail.risk_score,
+                  riskBand: detail.risk_band
+                });
+              }
+            }
+          }).catch(() => {});
         }
 
         if (searchParams.get('modal') === 'true') {
@@ -562,6 +586,9 @@ export const MapPage: React.FC = () => {
 
   const handleSelectRiskBand = (band: string) => {
     setSelectedSourceId(null);
+    setTargetLocation(null);
+    setInspectedMeta(null);
+    setSearchFeedback('');
     setFilters((prev) => ({
       ...prev,
       risk_band: prev.risk_band === band ? '' : band,
@@ -805,7 +832,11 @@ export const MapPage: React.FC = () => {
                 </label>
                 <select
                   value={filters.classification}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, classification: e.target.value }))}
+                  onChange={(e) => {
+                    setTargetLocation(null);
+                    setInspectedMeta(null);
+                    setFilters((prev) => ({ ...prev, classification: e.target.value }));
+                  }}
                   className="w-full bg-[#161412] text-white text-xs border border-white/15 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-[#D8582B] cursor-pointer"
                 >
                   <option value="">{lang === 'HI' ? 'सभी वर्गीकरण (All)' : 'All Classifications'}</option>
@@ -824,7 +855,11 @@ export const MapPage: React.FC = () => {
                 </label>
                 <select
                   value={filters.anomaly_status}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, anomaly_status: e.target.value }))}
+                  onChange={(e) => {
+                    setTargetLocation(null);
+                    setInspectedMeta(null);
+                    setFilters((prev) => ({ ...prev, anomaly_status: e.target.value }));
+                  }}
                   className="w-full bg-[#161412] text-white text-xs border border-white/15 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-[#D8582B] cursor-pointer"
                 >
                   <option value="">{lang === 'HI' ? 'सभी विसंगति स्थितियां' : 'All Anomaly Statuses'}</option>
@@ -843,7 +878,11 @@ export const MapPage: React.FC = () => {
                 </label>
                 <select
                   value={filters.satellite_evidence_status}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, satellite_evidence_status: e.target.value }))}
+                  onChange={(e) => {
+                    setTargetLocation(null);
+                    setInspectedMeta(null);
+                    setFilters((prev) => ({ ...prev, satellite_evidence_status: e.target.value }));
+                  }}
                   className="w-full bg-[#161412] text-white text-xs border border-white/15 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-[#D8582B] cursor-pointer"
                 >
                   <option value="">{lang === 'HI' ? 'सभी उपग्रह साक्ष्य' : 'All Satellite'}</option>
@@ -859,7 +898,11 @@ export const MapPage: React.FC = () => {
                 </label>
                 <select
                   value={filters.evidence_quality}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, evidence_quality: e.target.value }))}
+                  onChange={(e) => {
+                    setTargetLocation(null);
+                    setInspectedMeta(null);
+                    setFilters((prev) => ({ ...prev, evidence_quality: e.target.value }));
+                  }}
                   className="w-full bg-[#161412] text-white text-xs border border-white/15 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-[#D8582B] cursor-pointer"
                 >
                   <option value="">{lang === 'HI' ? 'सभी साक्ष्य गुणवत्ता' : 'All Evidence Quality'}</option>
@@ -875,10 +918,14 @@ export const MapPage: React.FC = () => {
               <div className="space-y-1 flex flex-col justify-end">
                 <button
                   type="button"
-                  onClick={() => setFilters((prev) => ({
-                    ...prev,
-                    has_industrial_context: prev.has_industrial_context ? undefined : true
-                  }))}
+                  onClick={() => {
+                    setTargetLocation(null);
+                    setInspectedMeta(null);
+                    setFilters((prev) => ({
+                      ...prev,
+                      has_industrial_context: prev.has_industrial_context ? undefined : true
+                    }));
+                  }}
                   className={`w-full py-2 px-2.5 rounded-xl border flex items-center justify-center gap-2 text-xs font-mono transition-all cursor-pointer ${
                     filters.has_industrial_context
                       ? 'bg-emerald-500/25 border-emerald-500 text-emerald-300 font-bold'
@@ -1206,6 +1253,7 @@ export const MapPage: React.FC = () => {
                   {t.density_heatmap}
                 </span>
                 <input
+                  id="toggle-density-heatmap"
                   type="checkbox"
                   checked={showHeatmap}
                   onChange={(e) => setShowHeatmap(e.target.checked)}

@@ -48,7 +48,37 @@ export const AiAssistantPage: React.FC = () => {
       timestamp: new Date().toISOString(),
       tool_calls: []
     };
-    setMessages([welcomeMsg]);
+
+    // Load persisted chat history from SQLite / local cache
+    api.getChatHistory()
+      .then((history) => {
+        if (Array.isArray(history) && history.length > 0) {
+          const loaded: ChatMessage[] = [welcomeMsg];
+          history.forEach((h: any) => {
+            loaded.push({
+              id: `user-${h.id}`,
+              role: 'user',
+              content: h.user_message,
+              timestamp: h.created_at || new Date().toISOString()
+            });
+            loaded.push({
+              id: `asst-${h.id}`,
+              role: 'assistant',
+              content: h.assistant_reply,
+              tool_calls: h.tool_calls || [],
+              action_links: h.action_links || [],
+              timestamp: h.created_at || new Date().toISOString(),
+              latency_ms: h.latency_ms
+            });
+          });
+          setMessages(loaded);
+        } else {
+          setMessages([welcomeMsg]);
+        }
+      })
+      .catch(() => {
+        setMessages([welcomeMsg]);
+      });
   }, []);
 
   // Auto-scroll messages container to bottom when messages update
@@ -109,11 +139,14 @@ export const AiAssistantPage: React.FC = () => {
     }
   };
 
-  const handleClearChat = () => {
+  const handleClearChat = async () => {
+    try {
+      await api.clearChatHistory();
+    } catch {}
     const welcomeMsg: ChatMessage = {
       id: `welcome-${Date.now()}`,
       role: 'assistant',
-      content: "Conversation reset. You can ask any factual query about thermal hotspots, facility proximity, or district risk benchmarks.",
+      content: "Conversation reset and cleared from database. You can ask any factual query about thermal hotspots, facility proximity, or district risk benchmarks.",
       timestamp: new Date().toISOString(),
       tool_calls: []
     };
