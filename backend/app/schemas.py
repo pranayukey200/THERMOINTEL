@@ -158,6 +158,16 @@ class TimelinePoint(BaseModel):
     night_frp: Optional[float] = None
     daynight: Optional[str] = None
 
+class ObservationItem(BaseModel):
+    obs_index: int
+    date: str
+    date_formatted: str
+    frp: float
+    pass_type: str
+    satellite: str
+    brightness_temp_k: float
+    is_peak: bool = False
+
 class TimelineResponse(BaseModel):
     thermal_source_id: int
     active_days: int
@@ -166,6 +176,12 @@ class TimelineResponse(BaseModel):
     recent_activity_status: str
     observation_span_days: int
     timeline: List[TimelinePoint]
+    observations: Optional[List[ObservationItem]] = None
+    night_ratio: Optional[float] = None
+    day_ratio: Optional[float] = None
+    start_date: Optional[str] = None
+    mid_date: Optional[str] = None
+    end_date: Optional[str] = None
 
 class AnalyticsSummary(BaseModel):
     total_sources: int

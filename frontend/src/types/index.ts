@@ -180,6 +180,17 @@ export interface TimelinePoint {
   daynight?: string;
 }
 
+export interface ObservationItem {
+  obs_index: number;
+  date: string;
+  date_formatted: string;
+  frp: number;
+  pass_type: 'Day Pass' | 'Night Pass';
+  satellite: string;
+  brightness_temp_k: number;
+  is_peak: boolean;
+}
+
 export interface TimelineResponse {
   thermal_source_id: number;
   active_days: number;
@@ -188,6 +199,12 @@ export interface TimelineResponse {
   recent_activity_status: string;
   observation_span_days: number;
   timeline: TimelinePoint[];
+  observations?: ObservationItem[];
+  night_ratio?: number;
+  day_ratio?: number;
+  start_date?: string;
+  mid_date?: string;
+  end_date?: string;
 }
 
 export interface AnalyticsSummary {
